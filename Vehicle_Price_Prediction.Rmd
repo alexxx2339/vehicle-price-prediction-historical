@@ -1,0 +1,359 @@
+---
+title: "Vehicle_Price_Prediction"
+author: "Alejandro Alvarez"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+# Vehicle Price Prediction {.tabset}
+
+
+## Introduction
+
+
+## Data Overview
+
+
+
+```{r}
+cars <- read_csv("data/car_prices.csv")
+
+
+```
+
+```{r}
+names(cars)
+
+summary(cars)
+
+
+colSums(is.na(cars))
+```
+
+## Data Clean up
+Create a clean data set
+
+
+```{r}
+
+cars_clean <- cars |> 
+  select(sellingprice, year, odometer, condition) |> 
+  drop_na()
+
+dim(cars_clean)
+
+colSums(is.na(cars_clean))
+
+
+summary(cars_clean)
+  
+```
+
+Summary
+
+Missing values were handled by listwise deletion for the baseline model. After removing observations with missing values in selling price, condition, and odometer, 546,976 observations remained for analysis.
+
+
+## Build a baseline regression
+
+* sellingprice = what we're trying to predict
+* year = vehicle age
+* odometer = mileage
+* condition = vehicle condition
+
+sellingprice=β0​+β1​(year)+β2​(odometer)+β3​(condition)
+
+## Baseline Regression Model
+
+
+
+```{r}
+model1 <- lm(
+  sellingprice ~ year + odometer + condition,
+  data = cars_clean
+)
+summary(model1)
+```
+
+## Estimated Regression Equation
+
+sellingprice = −1,500,000+753.4(year)−0.0566(odometer)+88.5(condition)
+
+Interpretation Year Coefficient: 753.4.
+
+For each additional model year, the expected selling price increases by about $753, holding mileage and condition constant.
+
+
+Odometer
+
+Coefficient:
+
+−0.0566
+
+For each additional mile on the odometer, the expected selling price decreases by about 5.7 cents, holding other variables constant.
+
+Example:
+
+10,000 additional miles:
+
+10,000×0.0566=$566
+
+So an extra 10,000 miles lowers value by approximately $566.
+
+Condition
+
+Coefficient:
+
+88.5
+
+Each one-point increase in vehicle condition increases expected selling price by about $89, holding other variables constant.
+
+Model Fit
+R
+2
+=0.3913
+
+Interpretation:
+
+Approximately 39.1% of the variation in vehicle selling prices is explained by vehicle year, mileage, and condition.
+
+This is actually reasonable for a very simple baseline model.
+
+
+###
+A baseline regression model was estimated using vehicle year, odometer reading, and condition as predictors of selling price. All variables were statistically significant at the 1% level (p < 0.001). The model explained approximately 39.1% of the variation in selling prices (R² = 0.3913), indicating that additional vehicle characteristics may be needed to improve predictive performance.
+
+## Exploratory Data Analysis
+
+```{r}
+
+
+cars_hist <- cars_clean %>%
+  filter(sellingprice <= 50000)
+
+ggplot(cars_hist, aes(x = sellingprice)) +
+  geom_histogram(bins = 50) +
+  labs(
+    title = "Distribution of Vehicle Selling Prices (Under $50,000)",
+    x = "Selling Price ($)",
+    y = "Count"
+  )
+```
+
+Distribution of Vehicle Selling Prices
+
+The distribution of vehicle selling prices is right-skewed, with most vehicles selling below $20,000. A small number of high-value vehicles create a long upper tail in the distribution.
+
+```{r}
+cars_scatter <- cars_clean %>%
+  filter(
+    sellingprice <= 50000,
+    odometer <= 200000
+  )
+cars_band <- cars_scatter %>%
+  mutate(mileage_band = floor(odometer/10000)*10000) %>%
+  group_by(mileage_band) %>%
+  summarize(avg_price = mean(sellingprice))
+
+ggplot(cars_band,
+       aes(x = mileage_band,
+           y = avg_price)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "Average Vehicle Price by Mileage",
+    x = "Mileage",
+    y = "Average Selling Price ($)"
+  )
+```
+
+Average Vehicle Price by Mileage
+
+Average vehicle prices decrease as mileage increases. Vehicles with lower mileage command substantially higher prices, while vehicles with over 150,000 miles generally sell for much lower amounts. This suggests a strong negative relationship between mileage and vehicle value.
+
+```{r}
+
+
+cars_year <- cars_clean %>%
+  group_by(year) %>%
+  summarize(avg_price = mean(sellingprice))
+
+ggplot(cars_year,
+       aes(x = year,
+           y = avg_price)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "Average Vehicle Price by Model Year",
+    x = "Vehicle Year",
+    y = "Average Selling Price ($)"
+  )
+```
+
+Average vehicle selling prices increase with model year, indicating that newer vehicles command higher market values. The relationship becomes especially pronounced for vehicles produced after 2005. This finding is consistent with the positive coefficient on vehicle year observed in the baseline regression model.
+
+
+The unusually high average prices for the oldest model years are likely driven by a small number of observations and should be interpreted with caution.
+
+The exploratory analysis reveals that vehicle age and mileage are important determinants of selling price. Newer vehicles tend to sell for higher prices, while higher-mileage vehicles experience significant reductions in value. These findings support the use of vehicle year and odometer readings as key predictors in the baseline regression model.
+
+## Model 2: Expanded Rregression Model
+```{r}
+# New data set
+
+cars_clean2 <- cars |> 
+  select(sellingprice,
+    year,
+    odometer,
+    condition,
+    make,
+    body,
+    transmission,
+    state
+) |> 
+  drop_na()
+
+dim(cars_clean2)
+
+
+
+```
+
+
+
+```{r}
+model2 <- lm(
+  sellingprice ~ year +
+    odometer +
+    condition +
+    make +
+    body +
+    transmission +
+    state,
+  data = cars_clean2
+)
+
+summary(model2)
+```
+
+## Expanded Regression Model Summary
+
+The expanded regression model includes vehicle year, mileage, condition, manufacturer, body type, transmission type, and state. The model achieved an R² of 0.683, indicating that approximately 68.3% of the variation in vehicle selling prices is explained by the included predictors.
+
+Compared to the baseline model (R² = 0.391), the expanded model substantially improves predictive performance. Vehicle make, body style, and transmission type provide important information beyond vehicle age, mileage, and condition.
+
+## model2b without state
+```{r}
+
+model2b <- lm(
+  sellingprice ~
+    year +
+    odometer +
+    condition +
+    make +
+    body +
+    transmission,
+  data = cars_clean2
+)
+
+summary(model2b)
+```
+
+
+
+State variables contributed very little additional explanatory power to the model. Removing all state indicators reduced the R² by only 0.21 percentage points (0.6825 to 0.6804), suggesting that vehicle characteristics such as year, mileage, condition, manufacturer, body type, and transmission are the primary drivers of vehicle prices. Therefore, Model 2B was selected as the preferred model because it achieves nearly identical predictive performance with fewer variables.
+
+## Model Selection
+
+Model 2 and Model 2B produced nearly identical results. Since state variables added little explanatory power, Model 2B was selected as the preferred model because it is more parsimonious while maintaining similar predictive performance.
+
+```{r}
+library(randomForest)
+```
+
+
+```{r}
+
+
+set.seed(123)
+
+cars_rf <- cars_clean2 %>%
+  sample_n(250000)
+```
+
+
+
+
+```{r}
+
+set.seed(123)
+
+sample_rows <- sample(
+  1:nrow(cars_rf),
+  0.8 * nrow(cars_rf)
+)
+
+train <- cars_rf[sample_rows, ]
+test <- cars_rf[-sample_rows, ]
+```
+
+```{r}
+
+
+rf_model <- randomForest(
+  sellingprice ~ year +
+    odometer +
+    condition +
+    make +
+    body +
+    transmission,
+  data = train,
+  ntree = 50
+)
+
+rf_model
+```
+
+## RMSE
+
+
+```{r}
+rf_pred <- predict(rf_model, newdata = test)
+
+rmse_rf <- sqrt(
+  mean((test$sellingprice - rf_pred)^2)
+)
+
+rmse_rf
+
+```
+
+
+
+```{r}
+
+importance(rf_model)
+varImpPlot(rf_model)
+```
+
+
+
+## Variable Importance
+
+The Random Forest variable importance analysis identified odometer (mileage) as the most influential predictor of vehicle selling price, followed by vehicle year and manufacturer. Body type and condition also contributed to price prediction, while transmission type had the smallest impact among the variables included in the model.
+
+These findings suggest that vehicle depreciation is driven primarily by age and usage, while brand reputation and vehicle category provide additional predictive information.
